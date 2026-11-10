@@ -6,6 +6,7 @@
   const GB_FPS = 4194304 / 70224;           // 59.7275 frames per second
   const FRAME_MS = 1000 / GB_FPS;
   const ROM_URL = 'racer.gb';
+  const VOLUME = 0.7;                       // headroom: four channels at full level would clip
 
   const PALETTES = {
     green: { label: 'Green screen', colors: [0xe0ecb4, 0x9db86a, 0x4d6e3c, 0x182a1c] },
@@ -82,7 +83,7 @@
     if (!AC) return;
     audioCtx = new AC({ latencyHint: 'interactive' });
     audioGain = audioCtx.createGain();
-    audioGain.gain.value = soundOn ? 1 : 0;
+    audioGain.gain.value = soundOn ? VOLUME : 0;
     audioGain.connect(audioCtx.destination);
     audioTarget = Math.round(audioCtx.sampleRate * 0.07);     // ~70 ms of buffered sound
     try {
@@ -323,7 +324,7 @@
   $('btn-sound').addEventListener('click', () => {
     soundOn = !soundOn;
     $('btn-sound').setAttribute('aria-pressed', String(soundOn));
-    if (audioGain) audioGain.gain.value = soundOn ? 1 : 0;
+    if (audioGain) audioGain.gain.value = soundOn ? VOLUME : 0;
     if (soundOn && started) initAudio();
   });
   $('btn-pause').addEventListener('click', () => {
@@ -392,11 +393,11 @@
       wasm = instance.exports;
       if (romRes.ok) {
         loadRom(new Uint8Array(await romRes.arrayBuffer()));
-        // draw the first frames behind the start button so the screen is not empty
-        for (let i = 0; i < 4; i++) wasm.wasm_run_frame();
+        // show the title screen behind the start button, then rewind so play starts from power-on
+        for (let i = 0; i < 40; i++) wasm.wasm_run_frame();
+        present();
         wasm.wasm_reset();
         applyPalette();
-        blankScreen();
         startBtn.textContent = matchMedia('(pointer: coarse)').matches ? 'Tap to play' : 'Click to play';
         startBtn.hidden = false;
       } else {

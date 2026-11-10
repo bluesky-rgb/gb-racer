@@ -446,33 +446,24 @@ def sky_night():
 def sky_title():
     """Title card: the logo sits where the sky is."""
     c = Canvas(256, SKY_ROWS, 1)
-    def word(text, x0, y0, sx, sy, slant):
+    def word(text, y0, sx, sy, ink, cut, shadow):
+        pitch = 6 * sx
+        x0 = 128 - (len(text) * pitch - sx) // 2
+        cells = []
         for k, ch in enumerate(text):
-            rows = font.GLYPHS[ch].split()
-            for y, row in enumerate(rows):
+            for y, row in enumerate(font.GLYPHS[ch].split()):
                 for x, v in enumerate(row):
-                    if v != '#': continue
-                    for dy in range(sy):
-                        yy = y0 + y * sy + dy
-                        off = int((7 * sy - (y * sy + dy)) * slant)
-                        for dx in range(sx):
-                            xx = x0 + k * (5 * sx + sx) + x * sx + dx + off
-                            c.set(xx + 2, yy + 2, 3)            # shadow
-        for k, ch in enumerate(text):
-            rows = font.GLYPHS[ch].split()
-            for y, row in enumerate(rows):
-                for x, v in enumerate(row):
-                    if v != '#': continue
-                    for dy in range(sy):
-                        yy = y0 + y * sy + dy
-                        off = int((7 * sy - (y * sy + dy)) * slant)
-                        for dx in range(sx):
-                            xx = x0 + k * (5 * sx + sx) + x * sx + dx + off
-                            c.set(xx, yy, 0 if (yy % 4) else 2)  # scanline cut through the letters
-    word("SCANLINE", 56, 14, 3, 3, 0.25)
-    word("SPRINT", 62, 42, 4, 4, 0.25)
-    c.rect(48, 74, 207, 75, 3)
-    c.rect(48, 77, 207, 77, 2)
+                    if v == '#': cells.append((x0 + k * pitch + x * sx, y0 + y * sy))
+        for (px, py) in cells:
+            c.rect(px + shadow, py + shadow, px + sx - 1 + shadow, py + sy - 1 + shadow, 3)
+        for (px, py) in cells:
+            for yy in range(py, py + sy):
+                c.rect(px, yy, px + sx - 1, yy, cut if (yy - y0) % 3 == 2 else ink)   # scanlines through the letters
+    word("SCANLINE", 12, 3, 3, 0, 1, 2)
+    word("SPRINT", 40, 4, 4, 0, 1, 2)
+    for x in range(48, 208):
+        c.px[73][x] = 3; c.px[74][x] = 3
+        if x % 4 < 2: c.px[76][x] = 3
     for x in range(256):
         c.px[79][x] = 2
     return c
