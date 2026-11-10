@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scanline Sprint</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="description" content="Scanline Sprint, an original pseudo-3D racing game for the Game Boy, playable in a from-scratch Game Boy emulator compiled to WebAssembly.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scanline Sprint">
+<meta name="theme-color" content="#1c4e55">
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+:root {
+  --shell: #1c4e55;        /* petrol enamel body */
+  --shell-deep: #133a40;
+  --shell-lit: #2a6a72;
+  --bezel: #1d2327;        /* graphite screen surround */
+  --pad: #252c31;
+  --pad-lit: #39434a;
+  --signal: #f4c430;       /* road-sign yellow: the two action buttons */
+  --signal-deep: #b98c12;
+  --ink: #f1ebdd;
+  --ink-dim: #a9c4c2;
+  --unit: clamp(52px, 11vmin, 92px);  /* action button diameter; everything scales from it */
+  font-family: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: var(--shell-deep); color: var(--ink);
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  touch-action: none; overscroll-behavior: none;
+}
+button { font: inherit; color: inherit; }
+
+.console {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto minmax(0, 1.3fr) minmax(0, 1fr) auto;
+  grid-template-areas: "bar bar" "stage stage" "left right" "sys sys";
+  gap: 0;
+  padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+           max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background:
+    radial-gradient(120% 80% at 50% 0%, var(--shell-lit) 0%, var(--shell) 45%, var(--shell-deep) 100%);
+}
+
+/* ---------- top bar ---------- */
+.bar { grid-area: bar; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 4px 10px; }
+.wordmark {
+  margin: 0; font-size: clamp(18px, 3.6vmin, 30px); font-weight: 800; font-style: italic;
+  letter-spacing: -0.01em; line-height: 1; white-space: nowrap;
+  /* the title is cut by scanlines, like the road it is named after */
+  color: transparent;
+  background: repeating-linear-gradient(to bottom, var(--ink) 0 0.13em, rgba(241,235,221,.55) 0.13em 0.19em);
+  -webkit-background-clip: text; background-clip: text;
+}
+.tools { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.tool {
+  appearance: none; border: 1.5px solid rgba(241,235,221,.28); background: rgba(19,58,64,.55);
+  border-radius: 999px; padding: 7px 13px; font-size: 13px; font-weight: 600; line-height: 1; cursor: pointer;
+  touch-action: manipulation;
+}
+.tool[aria-pressed="true"] { background: var(--ink); color: var(--shell-deep); border-color: var(--ink); }
+.tool:focus-visible, .start:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+.tool[hidden] { display: none; }
+
+/* ---------- screen ---------- */
+.stage { grid-area: stage; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; min-width: 0; }
+.bezel {
+  position: relative; background: var(--bezel); padding: clamp(8px, 2vmin, 18px);
+  border-radius: clamp(10px, 2.2vmin, 20px) clamp(10px, 2.2vmin, 20px) 0 0;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.07), 0 10px 24px rgba(8,28,31,.45);
+  line-height: 0;
+}
+#lcd { display: block; width: 160px; height: 144px; image-rendering: pixelated; image-rendering: crisp-edges; image-rendering: pixelated; background: #dfe8b8; }
+/* rumble strip under the screen */
+.rumble {
+  height: clamp(8px, 1.6vmin, 14px); width: 100%;
+  background: repeating-linear-gradient(90deg, var(--signal) 0 22px, var(--bezel) 22px 44px);
+  border-radius: 0 0 6px 6px;
+}
+.frame { display: flex; flex-direction: column; }
+.start {
+  position: absolute; inset: 0; margin: auto; width: max-content; height: max-content;
+  appearance: none; border: 0; cursor: pointer; line-height: 1.1;
+  background: var(--signal); color: #1d2327; font-weight: 800; font-size: clamp(18px, 3.4vmin, 28px);
+  padding: 0.7em 1.3em; border-radius: 999px; box-shadow: 0 5px 0 var(--signal-deep), 0 12px 24px rgba(0,0,0,.4);
+}
+.start:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--signal-deep); }
+.start[hidden] { display: none; }
+.note { position: absolute; left: 0; right: 0; bottom: 14%; text-align: center; font-size: 13px; line-height: 1.3; color: #1d2327; font-weight: 600; pointer-events: none; }
+.note[hidden] { display: none; }
+
+/* ---------- touch controls ---------- */
+.zone { display: flex; align-items: center; justify-content: center; min-height: 0; position: relative; }
+.zone-left { grid-area: left; }
+.zone-right { grid-area: right; }
+.zone-sys { grid-area: sys; gap: calc(var(--unit) * .5); padding: 6px 0 4px; }
+
+.dpad { position: relative; width: calc(var(--unit) * 2.5); height: calc(var(--unit) * 2.5); }
+.dpad i { position: absolute; background: var(--pad); box-shadow: inset 0 2px 0 rgba(255,255,255,.08), 0 6px 0 #14191c; }
+.dpad .v { left: 33.3%; width: 33.4%; top: 0; height: 100%; border-radius: 14%/5%; }
+.dpad .h { top: 33.3%; height: 33.4%; left: 0; width: 100%; border-radius: 5%/14%; }
+.dpad .hub { left: 33.3%; top: 33.3%; width: 33.4%; height: 33.4%; box-shadow: none; }
+.dpad b { position: absolute; width: 0; height: 0; border: calc(var(--unit) * .13) solid transparent; opacity: .5; }
+.dpad .au { left: 50%; top: 7%; transform: translateX(-50%); border-bottom-color: var(--ink); border-top-width: 0; }
+.dpad .ad { left: 50%; bottom: 7%; transform: translateX(-50%); border-top-color: var(--ink); border-bottom-width: 0; }
+.dpad .al { top: 50%; left: 7%; transform: translateY(-50%); border-right-color: var(--ink); border-left-width: 0; }
+.dpad .ar { top: 50%; right: 7%; transform: translateY(-50%); border-left-color: var(--ink); border-right-width: 0; }
+.dpad.up .au, .dpad.down .ad, .dpad.left .al, .dpad.right .ar { opacity: 1; border-bottom-color: var(--signal); border-top-color: var(--signal); border-left-color: var(--signal); border-right-color: var(--signal); }
+.dpad.up .au { border-left-color: transparent; border-right-color: transparent; }
+.dpad.down .ad { border-left-color: transparent; border-right-color: transparent; }
+.dpad.left .al { border-top-color: transparent; border-bottom-color: transparent; }
+.dpad.right .ar { border-top-color: transparent; border-bottom-color: transparent; }
+
+.ab { position: relative; width: calc(var(--unit) * 2.5); height: calc(var(--unit) * 2.1); }
+.round {
+  position: absolute; width: var(--unit); height: var(--unit); border-radius: 50%; border: 0; padding: 0;
+  background: var(--signal); color: #1d2327; font-weight: 800; font-size: calc(var(--unit) * .38);
+  box-shadow: 0 6px 0 var(--signal-deep), 0 10px 18px rgba(0,0,0,.3);
+  display: grid; place-items: center;
+}
+.round.b { left: 0; bottom: 0; }
+.round.a { right: 0; top: 0; }
+.round.on { transform: translateY(4px); box-shadow: 0 2px 0 var(--signal-deep); }
+.round small { position: absolute; top: 108%; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; color: var(--ink-dim); white-space: nowrap; }
+
+.pill { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-dim); }
+.pill span { display: block; width: calc(var(--unit) * .95); height: calc(var(--unit) * .3); border-radius: 999px; background: var(--pad); box-shadow: 0 4px 0 #14191c; }
+.pill.on span { transform: translateY(3px); box-shadow: 0 1px 0 #14191c; background: var(--pad-lit); }
+
+/* ---------- keyboard legend (shown when there is no touch screen) ---------- */
+.keys { display: none; grid-area: sys; justify-content: center; gap: 18px 26px; flex-wrap: wrap; padding: 14px 0 6px; font-size: 14px; color: var(--ink-dim); }
+.keys kbd { font: inherit; font-weight: 700; color: var(--ink); background: var(--shell-deep); border: 1.5px solid rgba(241,235,221,.3); border-bottom-width: 3px; border-radius: 6px; padding: 2px 7px; margin-right: 5px; }
+
+/* landscape: controls flank the screen */
+@media (orientation: landscape) {
+  .console {
+    grid-template-columns: minmax(calc(var(--unit) * 2.9), 1fr) minmax(0, 3.2fr) minmax(calc(var(--unit) * 2.9), 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "bar bar bar" "left stage right" "left sys right";
+  }
+  .zone-left, .zone-right { align-items: flex-end; padding-bottom: 9vh; }
+}
+/* mouse-and-keyboard devices: no on-screen pad, show the key legend instead */
+@media (hover: hover) and (pointer: fine) {
+  body:not(.touch) .zone { display: none; }
+  body:not(.touch) .keys { display: flex; }
+  body:not(.touch) .console { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "bar" "stage" "sys"; }
+}
+@media (prefers-reduced-motion: reduce) { .round.on, .pill.on span, .start:active { transform: none; } }
+</style>
+</head>
+<body>
+<main class="console" id="console">
+  <header class="bar">
+    <h1 class="wordmark">Scanline Sprint</h1>
+    <nav class="tools" aria-label="Emulator">
+      <button class="tool" id="btn-sound" aria-pressed="true">Sound</button>
+      <button class="tool" id="btn-pause" aria-pressed="false">Pause</button>
+      <button class="tool" id="btn-lcd">Green screen</button>
+      <button class="tool" id="btn-full" hidden>Full screen</button>
+      <button class="tool" id="btn-rom">Open ROM</button>
+      <input type="file" id="file" accept=".gb,.gbc,application/octet-stream" hidden>
+    </nav>
+  </header>
+
+  <section class="stage" id="stage">
+    <div class="frame">
+      <div class="bezel" id="bezel">
+        <canvas id="lcd" width="160" height="144" aria-label="Game screen"></canvas>
+        <button class="start" id="start" hidden>Tap to play</button>
+        <p class="note" id="note" hidden></p>
+      </div>
+      <div class="rumble" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <section class="zone zone-left" id="zone-dpad" aria-hidden="true">
+    <div class="dpad" id="dpad"><i class="v"></i><i class="h"></i><i class="hub"></i><b class="au"></b><b class="ad"></b><b class="al"></b><b class="ar"></b></div>
+  </section>
+  <section class="zone zone-right" id="zone-ab" aria-hidden="true">
+    <div class="ab" id="ab">
+      <div class="round b" id="key-b">B<small>brake</small></div>
+      <div class="round a" id="key-a">A<small>gas</small></div>
+    </div>
+  </section>
+  <section class="zone zone-sys" id="zone-sys" aria-hidden="true">
+    <div class="pill" id="key-select"><span></span>Select</div>
+    <div class="pill" id="key-start"><span></span>Start</div>
+  </section>
+
+  <footer class="keys">
+    <span><kbd>←</kbd><kbd>→</kbd>steer</span>
+    <span><kbd>X</kbd>gas (A)</span>
+    <span><kbd>Z</kbd>brake (B)</span>
+    <span><kbd>Enter</kbd>Start</span>
+    <span><kbd>Shift</kbd>Select</span>
+  </footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
