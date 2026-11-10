@@ -115,7 +115,7 @@ It has not been tried on a physical iPad.
 Added on request to show that the emulator is a console and the games are cartridges: the
 emulator was not changed for it apart from one presentation detail (below).
 
-- Vertical shooter in RGBDS assembly (`shooter/`, 1,700 lines of assembly + 600 lines of Python
+- Vertical shooter in RGBDS assembly (`shooter/`, 2,833 lines of assembly + 442 lines of Python
   generators). It reuses the racing game's sound driver, font and drawing tools (`game/src/sound.asm`,
   `game/tools/`); the racing game ROM was rebuilt afterwards and is byte-for-byte unchanged.
 - Three stages (outer rim with a ringed planet, an asteroid field, a station trench), three enemy
