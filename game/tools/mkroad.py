@@ -10,16 +10,14 @@ def bayer(x, y):
 
 # ground patterns: (x, y, variant) -> colour index. Periods divide 256 so the map wraps.
 def ground_grass(x, y, v):
-    if v == 0: return 1
-    return 2 if ((x + y) & 1) else 1                 # checker dither: darker band
+    return 1 if v == 0 else 0                        # light gray / white bands
 
 def ground_sand(x, y, v):
     if v == 0: return 1 if bayer(x, y) < 3 else 0    # pale sand with light speckle
     return 1                                           # flat light band
 
 def ground_night(x, y, v):
-    if v == 0: return 1
-    return 2 if bayer(x, y) < 6 else 1
+    return 1 if v == 0 else 2                        # dark gray / black bands
 
 THEMES = {
     "coast":  dict(ground=ground_grass, road=2, rumble=(0, 3), dash=0, edge=None),

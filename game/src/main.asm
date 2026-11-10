@@ -322,14 +322,16 @@ ClearOAM::
     ret
 
 ; turn the LCD off safely (waits for VBlank). Interrupt handlers stay installed.
+; Any VBlank line will do: waiting for one exact line can miss it forever when
+; the VBlank interrupt handler happens to be running during that line.
 LcdOff::
     ldh a, [rLCDC]
     add a
     ret nc
 .wait
     ldh a, [rLY]
-    cp 145
-    jr nz, .wait
+    cp 144
+    jr c, .wait
     xor a
     ldh [rLCDC], a
     ret

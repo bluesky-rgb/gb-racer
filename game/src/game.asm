@@ -529,6 +529,9 @@ RaceUpdate:
     ret z
 .exit
     call SongStop
+    ld a, 2
+    call EngineSet
+    call WaitVBlank         ; let the sound driver act on both requests
     call WaitVBlank
     call LcdOff
     ; finishing a course moves the cursor on to the next one
@@ -570,6 +573,8 @@ TickClocks:
 .out
     ld a, RS_TIMEUP
     ld [wRaceState], a
+    ld a, 2
+    call EngineSet          ; the car rolls to a stop in silence
     ld de, TextTimeUp
     call SetMessageHold
     ld hl, SongGameOver

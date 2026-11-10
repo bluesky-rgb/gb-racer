@@ -38,6 +38,12 @@ for course, name in enumerate(("coast", "canyon", "night")):
     shots = {300, 420, 900, 1800, 2700, 3600, 5000, n - 150}
     print(f"{name}: bot result {'FINISHED' if res == 2 else 'TIME UP'}, position {bot.gb.rd('wPosition')}, max CPU load {max(bot.loads[420:]) * 100:.1f}%")
     replay(name, bot.log, shots)
+# finish, then START back to the title
+bot = Bot(0)
+bot.menu(); bot.race()
+for i in range(300): bot.step(KEYS["start"] if 250 <= i < 256 else 0)
+assert bot.gb.rd("wState") == 0, "did not return to the title"
+replay("finish_to_title", bot.log[-700:] if False else bot.log, {len(bot.log) - 5})
 # a run with no steering: collisions, off-road and the time-up ending
 bot = Bot(1)
 bot.menu()

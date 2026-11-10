@@ -19,6 +19,9 @@ for p in range(64):
     vals = []
     for r in range(ROWS):
         v = ((z8[r] + phase) & 0x80) >> 7
+        # near the horizon one row spans most of a stripe period: sampling it would
+        # flicker at random, so those rows keep the light variant
+        if ZK / ((r + 1) * (r + 2)) > 0.45: v = 0
         vals.append(SKY_ROWS + ROWS * v + r - 1)
     vals += [0] * (128 - ROWS)
     db(None, vals, 32)

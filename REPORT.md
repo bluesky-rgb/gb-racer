@@ -44,8 +44,9 @@ Game, compared with mGBA (same ROM, same recorded inputs, every frame compared p
 | Course 1 Sunset Coast, full 3-lap race | 7,133 | 0 |
 | Course 2 Mesa Canyon, full 3-lap race | 7,557 | 0 |
 | Course 3 Neon Night, full 3-lap race | 7,448 | 0 |
+| Course 1 race, then START back to the title | 7,432 | 0 |
 | No steering: collisions, off-road, time-up ending | 3,742 | 0 |
-| **Total** | **26,132** | **0** |
+| **Total** | **33,561** | **0** |
 
 Matching screenshot pairs (`*_ours.png` / `*_mgba.png`) are in `docs/screenshots/`.
 
@@ -83,6 +84,18 @@ It has not been tried on a physical iPad.
 - **Sound requests from the main program** could race with the driver running in the VBlank
   interrupt. They are now single-byte requests picked up by the driver, so the main program never
   disables interrupts while the raster effect is running.
+
+- **Found in play-testing (after the first delivery):**
+  - *The game froze after a race when START was pressed, with the engine drone left
+    running.* The LCD-off routine waited for scanline 145 exactly; at the end of a race the
+    VBlank interrupt handler is busy for the whole of that line, so the wait never ended (this
+    would also hang real hardware). It now accepts any VBlank line. The engine is silenced
+    when time runs out and before returning to the title. The return to the title is now part
+    of the mGBA comparison.
+  - *The roadside looked smeared at speed.* The dark grass bands were a 1-pixel checker
+    pattern, which shimmers when scrolled, and near the horizon each row covered most of a
+    stripe period, so the stripes there flickered at random. The bands are now solid colours
+    and the rows nearest the horizon no longer alternate.
 
 ## Known limitations
 
