@@ -34,3 +34,4 @@ int gbx_halted(GB *g) { return g->cpu.halted; }
 int gbx_line(GB *g) { return g->ppu.line; }
 void gbx_chan_mask(GB *g, int m) { g->apu.chan_mask = (uint8_t)m; }
 void gbx_set_div(GB *g, uint16_t v) { g->timer.div = v; }
+uint64_t gbx_halt_cycles(GB *g) { return g->halt_cycles; }

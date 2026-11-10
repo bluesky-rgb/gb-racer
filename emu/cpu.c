@@ -187,6 +187,7 @@ void gb_cpu_step(GB *g) {
 
     if (c->halted) {
         idle(g);
+        g->halt_cycles += 4;
         if (g->ie & g->iflag & 0x1F) c->halted = false;
         return;
     }

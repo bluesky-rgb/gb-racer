@@ -8,6 +8,8 @@ _lib.gbx_create.argtypes = [ctypes.c_char_p, ctypes.c_size_t]
 _lib.gbx_front.restype = ctypes.POINTER(ctypes.c_uint8)
 _lib.gbx_serial.restype = ctypes.c_char_p
 _lib.gbx_cycles.restype = ctypes.c_uint64
+_lib.gbx_halt_cycles.restype = ctypes.c_uint64
+_lib.gbx_halt_cycles.argtypes = [ctypes.c_void_p]
 _lib.gbx_pc.restype = ctypes.c_uint16
 _lib.gbx_peek.restype = ctypes.c_uint8
 for _n in ("gbx_destroy", "gbx_front", "gbx_serial", "gbx_cycles", "gbx_pc", "gbx_breakpoint",
@@ -36,6 +38,19 @@ class GB:
         self.audio = []
         self.keep_audio = False
         self.frames = 0
+        self.sym = {}
+
+    def load_sym(self, path):
+        """Load an RGBDS .sym file so RAM can be addressed by label."""
+        for line in open(path):
+            p = line.split()
+            if len(p) == 2 and ":" in p[0]:
+                self.sym[p[1]] = int(p[0].split(":")[1], 16)
+        return self
+
+    def rd(self, name, off=0): return self.peek(self.sym[name] + off)
+    def rd16(self, name): return self.rd(name) | self.rd(name, 1) << 8
+    def wr(self, name, v, off=0): self.poke(self.sym[name] + off, v)
 
     def frame(self, keys=0):
         _lib.gb_set_keys(self.g, keys)
@@ -57,6 +72,7 @@ class GB:
     def reg(self, i): return _lib.gbx_reg(self.g, i)
     def pc(self): return _lib.gbx_pc(self.g)
     def cycles(self): return _lib.gbx_cycles(self.g)
+    def halt_cycles(self): return _lib.gbx_halt_cycles(self.g)
     def breakpoint(self): return bool(_lib.gbx_breakpoint(self.g))
     def halted(self): return bool(_lib.gbx_halted(self.g))
     def line(self): return _lib.gbx_line(self.g)

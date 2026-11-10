@@ -138,6 +138,7 @@ typedef struct GB {
     bool frame_ready;
     uint32_t frame_cycles; /* T-cycles since last frame boundary (LCD off pacing) */
     bool breakpoint;       /* LD B,B executed (mooneye test protocol) */
+    uint64_t halt_cycles;  /* T-cycles spent in HALT (idle time, for profiling games) */
 } GB;
 
 /* core API */
