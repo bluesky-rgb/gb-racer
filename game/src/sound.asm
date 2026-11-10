@@ -336,6 +336,7 @@ SoundUpdate::
     ld a, h
     ld [wSfxPtr4 + 1], a
 .nosfx4
+IF DEF(USE_ENGINE)          ; the engine drone needs the racing game's wSpeed
     ; ---- engine: pitch follows speed, louder under throttle
     ld a, [wEngineOn]
     or a
@@ -382,6 +383,7 @@ SoundUpdate::
 .vol
     ldh [rNR32], a
 .noengine
+ENDC
     ; ---- music
     ld a, [wSongOn]
     or a
@@ -748,6 +750,7 @@ WaveBass:
 WaveEngine:
     db $FF, $C8, $F4, $0B, $D5, $39, $E2, $06, $AC, $51, $F0, $28, $B3, $07, $94, $10
 
+IF !DEF(CUSTOM_SFX)         ; a game can supply its own SfxTable instead
 SfxTable:
     dw SfxBeep, SfxGo, SfxCheck, SfxCrash, SfxSkid, SfxSelect
 ; pulse effects: type 1, then (frames, note)..., 0
@@ -758,5 +761,6 @@ SfxSelect:  db 1, 4, 48, 6, 55, 0
 ; noise effects: type 4, then (frames, envelope, poly)..., 0
 SfxCrash:   db 4, 6, $F2, $5D, 8, $D2, $6C, 14, $A3, $7A, 0
 SfxSkid:    db 4, 5, $72, $33, 0
+ENDC
 
 INCLUDE "music.asm"

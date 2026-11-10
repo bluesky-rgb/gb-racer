@@ -244,6 +244,9 @@ void ppu_write(GB *g, uint16_t a, uint8_t v) {
         uint8_t old = p->lcdc;
         p->lcdc = v;
         if ((old & 0x80) && !(v & 0x80)) {
+            /* While the LCD is off a blank frame is presented every 70224 cycles,
+             * counted from the moment it was switched off. */
+            g->frame_cycles = 0;
             p->line = 0; p->dot = 0; p->ly = 0;
             p->mode = 0; p->imode = 0;
             p->win_line = 0; p->wy_trig = false; p->win_drawn = false;

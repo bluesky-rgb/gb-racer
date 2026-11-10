@@ -1,5 +1,9 @@
 # Project report
 
+**Update:** a second original game, **Orbit Lance** (vertical shooter), was added afterwards as
+a second cartridge for the same emulator. The web page has a cartridge switcher; see the section
+at the end.
+
 Play link: **https://bluesky-rgb.github.io/gb-racer/**
 
 ## Time
@@ -46,7 +50,9 @@ Game, compared with mGBA (same ROM, same recorded inputs, every frame compared p
 | Course 3 Neon Night, full 3-lap race | 7,448 | 0 |
 | Course 1 race, then START back to the title | 7,432 | 0 |
 | No steering: collisions, off-road, time-up ending | 3,742 | 0 |
-| **Total** | **33,561** | **0** |
+| Orbit Lance: one full loop (3 stages and 3 bosses) | 8,306 | 0 |
+| Orbit Lance: never moving, game over, back to the title | 1,585 | 0 |
+| **Total** | **43,452** | **0** |
 
 Matching screenshot pairs (`*_ours.png` / `*_mgba.png`) are in `docs/screenshots/`.
 
@@ -103,3 +109,29 @@ It has not been tried on a physical iPad.
   nobody has listened to it.
 - Rivals hold their lanes; they do not weave or block.
 - The emulator does not emulate the OAM corruption bug, the RTC of MBC3, or battery saves.
+
+## Second cartridge: Orbit Lance
+
+Added on request to show that the emulator is a console and the games are cartridges: the
+emulator was not changed for it apart from one presentation detail (below).
+
+- Vertical shooter in RGBDS assembly (`shooter/`, 1,700 lines of assembly + 600 lines of Python
+  generators). It reuses the racing game's sound driver, font and drawing tools (`game/src/sound.asm`,
+  `game/tools/`); the racing game ROM was rebuilt afterwards and is byte-for-byte unchanged.
+- Three stages (outer rim with a ringed planet, an asteroid field, a station trench), three enemy
+  types, power capsules (single, double and triple shot), screen-clearing bombs, a boss at the end
+  of each stage, harder loops after the third stage, score and high score, original music for the
+  title, each stage, the boss, stage clear and game over.
+- The title logo ripples using an HBlank interrupt that changes SCX on every scanline.
+- SELECT on the title chooses the starting stage.
+- CPU use while playing: at most about 68% of a frame, 32% on average.
+- The web page has a cartridge switcher; `?cart=lance` opens the shooter directly.
+
+**Problem found by the mGBA comparison:** after a stage change our frames were exactly one frame
+behind mGBA's from then on. The game itself ran identically; only the frame boundaries differed.
+While the LCD is off there is no picture, and each emulator presents a blank frame every 70,224
+cycles, but we counted from the end of the last picture and mGBA (judging from its output) counts
+from the moment the LCD is switched off. When the LCD came back on between those two points, one
+extra frame appeared. Real hardware has no frames while the LCD is off, so neither is wrong; the
+emulator now counts from the switch-off so that both emulators agree. All test ROMs and both games'
+comparisons were run again afterwards.

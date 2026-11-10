@@ -25,6 +25,7 @@ site: web/gb.wasm
 	cp web/index.html web/app.js web/audio-worklet.js web/gb.wasm docs/
 	@if [ -f web/icon.png ]; then cp web/icon.png docs/; fi
 	@if [ -f game/build/racer.gb ]; then cp game/build/racer.gb docs/racer.gb; fi
+	@if [ -f shooter/build/lance.gb ]; then cp shooter/build/lance.gb docs/lance.gb; fi
 	@touch docs/.nojekyll
 
 .PHONY: all wasm site clean

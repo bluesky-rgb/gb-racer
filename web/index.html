@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Scanline Sprint</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="description" content="Scanline Sprint, an original pseudo-3D racing game for the Game Boy, playable in a from-scratch Game Boy emulator compiled to WebAssembly.">
+<meta name="description" content="Two original Game Boy games, Scanline Sprint (a pseudo-3D racer) and Orbit Lance (a vertical shooter), running in a from-scratch Game Boy emulator compiled to WebAssembly.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -69,6 +69,24 @@ button { font: inherit; color: inherit; }
 .tool[aria-pressed="true"] { background: var(--ink); color: var(--shell-deep); border-color: var(--ink); }
 .tool:focus-visible, .start:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
 .tool[hidden] { display: none; }
+
+/* ---------- cartridge switcher ---------- */
+.carts { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 10px; margin-bottom: clamp(8px, 1.6vmin, 14px); }
+.cart {
+  appearance: none; border: 0; cursor: pointer; position: relative; touch-action: manipulation;
+  padding: 11px 16px 8px; font-size: 14px; font-weight: 700; line-height: 1;
+  color: var(--ink-dim); background: var(--bezel);
+  border-radius: 3px 14px 3px 3px;           /* the clipped corner of a cartridge */
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.35);
+}
+.cart::before {                               /* grip ridges along the top edge */
+  content: ""; position: absolute; left: 10px; right: 16px; top: 4px; height: 3px;
+  background: repeating-linear-gradient(90deg, rgba(241,235,221,.22) 0 3px, transparent 3px 6px);
+}
+.cart[aria-checked="true"] { background: var(--signal); color: #1d2327; }
+.cart[aria-checked="true"]::before { background: repeating-linear-gradient(90deg, rgba(29,35,39,.3) 0 3px, transparent 3px 6px); }
+.cart:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.carts-note { margin: 0; font-size: 12px; color: var(--ink-dim); }
 
 /* ---------- screen ---------- */
 .stage { grid-area: stage; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; min-width: 0; }
@@ -172,6 +190,11 @@ button { font: inherit; color: inherit; }
   </header>
 
   <section class="stage" id="stage">
+    <div class="carts" id="carts" role="radiogroup" aria-label="Cartridge">
+      <button class="cart" role="radio" aria-checked="true" data-cart="sprint">Scanline Sprint</button>
+      <button class="cart" role="radio" aria-checked="false" data-cart="lance">Orbit Lance</button>
+      <p class="carts-note">Both games run on the same emulator.</p>
+    </div>
     <div class="frame">
       <div class="bezel" id="bezel">
         <canvas id="lcd" width="160" height="144" aria-label="Game screen"></canvas>
@@ -187,8 +210,8 @@ button { font: inherit; color: inherit; }
   </section>
   <section class="zone zone-right" id="zone-ab" aria-hidden="true">
     <div class="ab" id="ab">
-      <div class="round b" id="key-b">B<small>brake</small></div>
-      <div class="round a" id="key-a">A<small>gas</small></div>
+      <div class="round b" id="key-b">B<small id="label-b">brake</small></div>
+      <div class="round a" id="key-a">A<small id="label-a">gas</small></div>
     </div>
   </section>
   <section class="zone zone-sys" id="zone-sys" aria-hidden="true">
@@ -196,7 +219,7 @@ button { font: inherit; color: inherit; }
     <div class="pill" id="key-start"><span></span>Start</div>
   </section>
 
-  <footer class="keys">
+  <footer class="keys" id="legend">
     <span><kbd>←</kbd><kbd>→</kbd>steer</span>
     <span><kbd>X</kbd>gas (A)</span>
     <span><kbd>Z</kbd>brake (B)</span>

@@ -5,7 +5,20 @@
   const KEY = { right: 1, left: 2, up: 4, down: 8, a: 16, b: 32, select: 64, start: 128 };
   const GB_FPS = 4194304 / 70224;           // 59.7275 frames per second
   const FRAME_MS = 1000 / GB_FPS;
-  const ROM_URL = 'racer.gb';
+  // the cartridges bundled with the page; the emulator is the same for both
+  const CARTS = {
+    sprint: { file: 'racer.gb', title: 'Scanline Sprint', a: 'gas', b: 'brake',
+      legend: [[['←', '→'], 'steer'], [['X'], 'gas (A)'], [['Z'], 'brake (B)'], [['Enter'], 'Start'], [['Shift'], 'Select']] },
+    lance: { file: 'lance.gb', title: 'Orbit Lance', a: 'fire', b: 'bomb',
+      legend: [[['←', '↑', '↓', '→'], 'move'], [['X'], 'fire (A)'], [['Z'], 'bomb (B)'], [['Enter'], 'Start'], [['Shift'], 'Select (pick a stage)']] },
+  };
+  let cartId = 'sprint';
+  try {
+    const q = new URLSearchParams(location.search).get('cart');
+    const saved = localStorage.getItem('cart');
+    if (CARTS[q]) cartId = q; else if (CARTS[saved]) cartId = saved;
+  } catch (e) { /* storage unavailable */ }
+  const romCache = {};
   const VOLUME = 0.7;                       // headroom: four channels at full level would clip
 
   const PALETTES = {
@@ -64,8 +77,10 @@
     const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     const rumble = document.querySelector('.rumble').offsetHeight;
+    const carts = $('carts');
+    const cartsH = carts.offsetHeight + parseFloat(getComputedStyle(carts).marginBottom);
     const availW = (stage.clientWidth - padX) * dpr;
-    const availH = (stage.clientHeight - padY - rumble - 4) * dpr;
+    const availH = (stage.clientHeight - padY - rumble - cartsH - 4) * dpr;
     const k = Math.max(1, Math.floor(Math.min(availW / 160, availH / 144)));
     canvas.style.width = (160 * k) / dpr + 'px';
     canvas.style.height = (144 * k) / dpr + 'px';
@@ -210,7 +225,8 @@
   window.addEventListener('keydown', (e) => {
     const k = KEYMAP[e.code];
     if (!k || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (document.activeElement && document.activeElement.classList.contains('tool') && (e.code === 'Enter' || e.code === 'Space')) return;
+    const focus = document.activeElement;
+    if (focus && (focus.classList.contains('tool') || focus.classList.contains('cart')) && (e.code === 'Enter' || e.code === 'Space')) return;
     e.preventDefault();
     if (!started) begin();
     held.add(k);
@@ -357,9 +373,80 @@
     const f = e.target.files[0];
     if (!f) return;
     loadRom(new Uint8Array(await f.arrayBuffer()));
+    cartId = null;
+    showCart();
     document.querySelector('.wordmark').textContent = f.name.replace(/\.[^.]+$/, '');
     begin();
   });
+
+  /* ------------------------------------------------------------ cartridges */
+
+  // labels, legend and selection for the cartridge that is in the slot
+  function showCart() {
+    document.querySelectorAll('.cart').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.cart === cartId)));
+    const c = CARTS[cartId];
+    if (!c) return;
+    document.querySelector('.wordmark').textContent = c.title;
+    document.title = c.title;
+    $('label-a').textContent = c.a;
+    $('label-b').textContent = c.b;
+    const legend = $('legend');
+    legend.textContent = '';
+    for (const [keys, what] of c.legend) {
+      const span = document.createElement('span');
+      for (const k of keys) { const kbd = document.createElement('kbd'); kbd.textContent = k; span.appendChild(kbd); }
+      span.appendChild(document.createTextNode(what));
+      legend.appendChild(span);
+    }
+  }
+
+  async function fetchCart(id) {
+    if (!romCache[id]) {
+      const res = await fetch(CARTS[id].file);
+      if (!res.ok) throw new Error(CARTS[id].file);
+      romCache[id] = new Uint8Array(await res.arrayBuffer());
+    }
+    return romCache[id];
+  }
+
+  // run the new cartridge for a moment so its title screen shows behind the start button
+  function preview() {
+    for (let i = 0; i < 40; i++) wasm.wasm_run_frame();
+    present();
+    wasm.wasm_reset();
+    applyPalette();
+  }
+
+  let switching = false;
+  async function switchCart(id) {
+    if (!wasm || switching || id === cartId) return;
+    switching = true;
+    const was = running;
+    setRunning(false);
+    cartId = id;
+    showCart();
+    try { localStorage.setItem('cart', id); history.replaceState(null, '', '?cart=' + id); } catch (e) { /* ignore */ }
+    // like pulling a cartridge out: the screen goes blank before the new game starts
+    blankScreen();
+    showNote('Loading ' + CARTS[id].title + '…');
+    try {
+      const bytes = await fetchCart(id);
+      await new Promise((r) => setTimeout(r, 300));
+      loadRom(bytes);
+      note.hidden = true;
+      if (started) { if (was || !userPaused) { userPaused = false; $('btn-pause').setAttribute('aria-pressed', 'false'); $('btn-pause').textContent = 'Pause'; setRunning(true); } }
+      else preview();
+    } catch (err) {
+      showNote('That cartridge could not be loaded. Check your connection and try again.');
+    }
+    switching = false;
+  }
+  document.querySelectorAll('.cart').forEach((b) => b.addEventListener('click', () => switchCart(b.dataset.cart)));
+  // arrow keys move between the two cartridges when the switcher has focus
+  $('carts').addEventListener('keydown', (e) => {
+    if (e.code !== 'ArrowLeft' && e.code !== 'ArrowRight') return;
+    e.stopPropagation();
+  }, true);
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) setRunning(false);
@@ -385,28 +472,27 @@
   async function boot() {
     applyPalette();
     blankScreen();
+    showCart();
     layout();
     try {
-      const [wasmRes, romRes] = await Promise.all([fetch('gb.wasm'), fetch(ROM_URL)]);
+      const wasmRes = await fetch('gb.wasm');
       if (!wasmRes.ok) throw new Error('gb.wasm');
       const { instance } = await WebAssembly.instantiate(await wasmRes.arrayBuffer(), {});
       wasm = instance.exports;
-      if (romRes.ok) {
-        loadRom(new Uint8Array(await romRes.arrayBuffer()));
-        // show the title screen behind the start button, then rewind so play starts from power-on
-        for (let i = 0; i < 40; i++) wasm.wasm_run_frame();
-        present();
-        wasm.wasm_reset();
-        applyPalette();
+      let bytes = null;
+      try { bytes = await fetchCart(cartId); } catch (e) { bytes = null; }
+      if (bytes) {
+        loadRom(bytes);
+        preview();
         startBtn.textContent = matchMedia('(pointer: coarse)').matches ? 'Tap to play' : 'Click to play';
         startBtn.hidden = false;
       } else {
-        showNote('No game is bundled with this page. Use “Open ROM” to choose a .gb file.');
+        showNote('The game could not be loaded. Use “Open ROM” to choose a .gb file.');
       }
     } catch (err) {
       showNote('The emulator could not be loaded. Check your connection and reload the page.');
     }
-    window.gbDebug = { wasm: () => wasm, state: () => ({ running, started, lockedRefresh, lockDivider, audioFill, audioTarget, currentRate, ctx: audioCtx && audioCtx.state }) };
+    window.gbDebug = { wasm: () => wasm, state: () => ({ cart: cartId, running, started, lockedRefresh, lockDivider, audioFill, audioTarget, currentRate, ctx: audioCtx && audioCtx.state }) };
   }
   boot();
 })();

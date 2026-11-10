@@ -9,9 +9,9 @@ from bot import Bot, ROM
 out = sys.argv[1] if len(sys.argv) > 1 else "build/verify"
 os.makedirs(out, exist_ok=True)
 total = bad = 0
-def replay(name, log, shots):
+def replay(name, log, shots, rom=ROM):
     global total, bad
-    a, b = GB(ROM), MGBA(ROM)
+    a, b = GB(rom), MGBA(rom)
     nd, first = 0, None
     for f, k in enumerate(log):
         a.frame(k); b.frame(k)
@@ -49,4 +49,36 @@ bot = Bot(1)
 bot.menu()
 for f in range(3600): bot.step(KEYS["a"] if 300 < f else 0)
 replay("timeup", bot.log, {1500, 3000, 3700})
+# ---- second cartridge: ORBIT LANCE
+from shooter_bot import ShooterBot, ROM as LANCE
+from gbpy import KEYS as K
+# one full loop: three stages and their bosses, until stage 1 starts again
+sb = ShooterBot()
+marks = {}
+def watch(f, gb):
+    key = (gb.rd("wStage"), gb.rd("wLoop"), gb.rd("wBannerT") > 0, gb.rd("wScriptHold"))
+    for name, cond in (("boss1", key[:2] == (0, 0) and gb.rd("wBossBoomT") == 40),
+                       ("boss2", key[:2] == (1, 0) and gb.rd("wBossBoomT") == 40),
+                       ("boss3", key[:2] == (2, 0) and gb.rd("wBossBoomT") == 40)):
+        if cond and name not in marks: marks[name] = f
+    if key[:2] == (0, 1) and "loop" not in marks: marks["loop"] = f
+sb.play(on_frame=watch, max_frames=12000, stop_at_title=False)
+end = marks.get("loop", len(sb.log)) + 120
+log = sb.log[:end]
+shots = {60, 300, 900, 2000} | {m + d for m in marks.values() for d in (-300, -120, 0, 30)}
+print("lance_loop: events at", marks)
+replay("lance_loop", log, {f for f in shots if 0 < f < len(log)}, LANCE)
+# a player who never moves: shot down, game over, back to the title
+sb = ShooterBot()
+for _ in range(100): sb.step(0)
+for _ in range(4): sb.step(K["start"])
+seen = False
+for f in range(8000):
+    sb.step(K["a"])
+    st = sb.gb.rd("wState")
+    seen |= st == 2
+    if seen and st == 0: break
+for _ in range(60): sb.step(0)
+n = len(sb.log)
+replay("lance_gameover", sb.log, {n - 400, n - 300, n - 200, n - 30}, LANCE)
 print(f"TOTAL: {total} frames compared, {bad} differ")

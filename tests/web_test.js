@@ -74,7 +74,19 @@ const server = http.createServer((req, res) => {
     await page.waitForTimeout(500);
     const state2 = await page.evaluate(() => window.gbDebug.state());
     await page.screenshot({ path: `${outDir}/web-${name}.png` });
-    results.push({ name, info, input, state2, errors });
+    // swap cartridges: same emulator, other game
+    const before = await page.evaluate(() => Array.from(document.getElementById('lcd').getContext('2d').getImageData(0, 0, 160, 144).data.filter((_, i) => i % 4 === 0)).join(','));
+    if (touch) await page.tap('.cart[data-cart="lance"]'); else await page.click('.cart[data-cart="lance"]');
+    await page.waitForTimeout(1500);
+    const swap = await page.evaluate(() => ({
+      state: window.gbDebug.state(), title: document.querySelector('.wordmark').textContent,
+      a: document.getElementById('label-a').textContent, checked: document.querySelector('.cart[aria-checked="true"]').dataset.cart,
+      url: location.search,
+    }));
+    const after = await page.evaluate(() => Array.from(document.getElementById('lcd').getContext('2d').getImageData(0, 0, 160, 144).data.filter((_, i) => i % 4 === 0)).join(','));
+    swap.screenChanged = before !== after;
+    await page.screenshot({ path: `${outDir}/web-${name}-lance.png` });
+    results.push({ name, info, input, state2, swap, errors });
     await context.close();
   }
   console.log(JSON.stringify(results, null, 1));

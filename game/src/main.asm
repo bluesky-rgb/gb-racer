@@ -346,6 +346,7 @@ DMARoutine:
     ret
 DMARoutineEnd:
 
+DEF USE_ENGINE EQU 1
 INCLUDE "sound.asm"
 INCLUDE "road.asm"
 INCLUDE "objects.asm"
